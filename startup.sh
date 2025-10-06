@@ -24,3 +24,5 @@ curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH="/root/.local/bin
 curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH="/root/.local/bin:$PATH" && cd /home/site/wwwroot && uv run fastapi run app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 
 curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH="/root/.local/bin:$PATH" && cd /home/site/wwwroot && uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+
+curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH="/root/.local/bin:$PATH" && cd /home/site/wwwroot/app && uv run fastapi run main.py --host 0.0.0.0 --port ${PORT:-8000}
