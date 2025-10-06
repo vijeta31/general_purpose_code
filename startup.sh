@@ -13,3 +13,6 @@ uv --version
 
 echo "Starting FastAPI application..."
 uv run fastapi run --host 0.0.0.0 --port ${PORT:-8000}
+
+
+curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.cargo/env && uv run fastapi run --host 0.0.0.0 --port ${PORT:-8000}
