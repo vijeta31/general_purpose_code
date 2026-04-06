@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chatbot Monthly Cost Estimator</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #2a3550;
+    --text: #e2e8f0;
+    --text-dim: #8892a8;
+    --accent: #22d3ee;
+    --accent2: #818cf8;
+    --accent3: #34d399;
+    --warn: #fbbf24;
+    --red: #f87171;
+    --gradient: linear-gradient(135deg, #22d3ee, #818cf8);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .container { max-width: 900px; margin: 0 auto; }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 28px;
+  }
+
+  .total-banner {
+    background: linear-gradient(135deg, rgba(34,211,238,0.08), rgba(129,140,248,0.08));
+    border: 1px solid rgba(34,211,238,0.2);
+    border-radius: 14px;
+    padding: 20px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .total-label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 600;
+  }
+
+  .total-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .total-meta {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    text-align: center;
+  }
+
+  .meta-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .meta-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .slider-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 16px;
+  }
+
+  .slider-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .slider-label {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+
+  .slider-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--surface2);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(34,211,238,0.4);
+  }
+
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin: 24px 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  .section-title.llm::before { background: var(--accent); }
+  .section-title.db::before { background: var(--accent3); }
+  .section-title.infra::before { background: var(--accent2); }
+
+  .breakdown-grid {
+    display: grid;
+    gap: 8px;
+  }
+
+  .cost-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .cost-row:hover {
+    border-color: rgba(34,211,238,0.3);
+  }
+
+  .cost-agent {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .cost-detail {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .cost-tokens {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .cost-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-align: right;
+    min-width: 70px;
+  }
+
+  .cost-amount.llm-color { color: var(--accent); }
+  .cost-amount.db-color { color: var(--accent3); }
+  .cost-amount.infra-color { color: var(--accent2); }
+
+  .assumptions {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 24px;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .assumptions strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .pie-section {
+    display: flex;
+    gap: 14px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .pie-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+  }
+
+  .pie-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  .note-tag {
+    display: inline-block;
+    background: rgba(251,191,36,0.12);
+    color: var(--warn);
+    font-size: 0.68rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+
+  @media (max-width: 600px) {
+    .total-banner { flex-direction: column; text-align: center; }
+    .cost-row { grid-template-columns: 1fr auto; }
+    .cost-tokens { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Chatbot Cost Estimator</h1>
+  <p class="subtitle">LangGraph + Claude Opus 4.6 (Azure AI Foundry) + Cosmos DB</p>
+
+  <div class="total-banner">
+    <div>
+      <div class="total-label">Estimated Monthly Cost</div>
+      <div class="total-amount" id="totalCost">$0.00</div>
+    </div>
+    <div class="total-meta">
+      <div class="meta-item">
+        <div class="meta-value" id="totalLLM">$0</div>
+        <div class="meta-label">LLM Calls</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-value" id="totalDB">$0</div>
+        <div class="meta-label">Cosmos DB</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-value" id="totalInfra">$0</div>
+        <div class="meta-label">Infra</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slider-section">
+    <div class="slider-row">
+      <span class="slider-label">Monthly Queries</span>
+      <span class="slider-value" id="queryLabel">150</span>
+    </div>
+    <input type="range" id="querySlider" min="50" max="5000" value="150" step="50">
+    <div class="slider-row" style="margin-top: 14px;">
+      <span class="slider-label">Avg. Retrieved Context Size</span>
+      <span class="slider-value" id="contextLabel">10K tokens</span>
+    </div>
+    <input type="range" id="contextSlider" min="2000" max="30000" value="10000" step="1000">
+    <div class="slider-row" style="margin-top: 14px;">
+      <span class="slider-label">% Queries Missing Market Model (follow-up check)</span>
+      <span class="slider-value" id="followupLabel">50%</span>
+    </div>
+    <input type="range" id="followupSlider" min="0" max="100" value="50" step="5">
+  </div>
+
+  <!-- LLM Section -->
+  <div class="section-title llm">LLM Costs — Claude Opus 4.6 via Azure AI Foundry</div>
+  <div class="breakdown-grid" id="llmGrid"></div>
+
+  <!-- DB Section -->
+  <div class="section-title db">Cosmos DB Costs</div>
+  <div class="breakdown-grid" id="dbGrid"></div>
+
+  <!-- Infra Section -->
+  <div class="section-title infra">Infrastructure & LangGraph</div>
+  <div class="breakdown-grid" id="infraGrid"></div>
+
+  <div class="pie-section">
+    <div class="pie-item"><div class="pie-dot" style="background:var(--accent)"></div><span id="llmPct">0%</span> LLM</div>
+    <div class="pie-item"><div class="pie-dot" style="background:var(--accent3)"></div><span id="dbPct">0%</span> Cosmos DB</div>
+    <div class="pie-item"><div class="pie-dot" style="background:var(--accent2)"></div><span id="infraPct">0%</span> Infra</div>
+  </div>
+
+  <div class="assumptions">
+    <strong>Pricing Assumptions:</strong><br>
+    Claude Opus 4.6 via Azure AI Foundry: $5 / 1M input tokens, $25 / 1M output tokens (standard ≤200K context).<br>
+    <strong>Token estimates per call:</strong> Classify → ~500 in / ~15 out · Follow-up check → ~2K in / ~15 out · Reviewer → ~10K in / ~80 out · Generate → ~6.5K in / ~600 out · Citation → ~1K in / ~800 out.<br>
+    Cosmos DB Serverless: ~$0.25 / 1M RUs consumed + $0.25/GB/month storage.<br>
+    SQL queries ~10 RUs, Vector search ~40 RUs each.<br>
+    LangGraph hosting estimated at ~$15/mo for a lightweight container (Azure Container Apps / App Service B1).<br>
+    Storage assumed at ~5 GB (vector embeddings + chat history).<br>
+    All estimates exclude network egress, logging, and monitoring costs.
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+const PRICE = {
+  inputPerM: 5.00,
+  outputPerM: 25.00,
+  cosmosRUPerM: 0.25,
+  cosmosStoragePerGB: 0.25,
+  storageGB: 5,
+  langgraphInfra: 15,
+};
+
+function tokenCost(inputTokens, outputTokens) {
+  return (inputTokens / 1e6) * PRICE.inputPerM + (outputTokens / 1e6) * PRICE.outputPerM;
+}
+
+function ruCost(totalRUs) {
+  return (totalRUs / 1e6) * PRICE.cosmosRUPerM;
+}
+
+function fmt(n) {
+  return n < 0.01 ? '<$0.01' : '$' + n.toFixed(2);
+}
+
+function fmtTokens(input, output) {
+  const f = n => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n;
+  return `${f(input)} in / ${f(output)} out`;
+}
+
+function makeRow(agent, detail, tokens, amount, colorClass) {
+  return `<div class="cost-row">
+    <div><div class="cost-agent">${agent}</div><div class="cost-detail">${detail}</div></div>
+    <div class="cost-tokens">${tokens}</div>
+    <div class="cost-amount ${colorClass}">${amount}</div>
+  </div>`;
+}
+
+function calculate() {
+  const Q = parseInt($('querySlider').value);
+  const CTX = parseInt($('contextSlider').value);
+  const FU_PCT = parseInt($('followupSlider').value) / 100;
+
+  $('queryLabel').textContent = Q.toLocaleString();
+  $('contextLabel').textContent = (CTX/1000) + 'K tokens';
+  $('followupLabel').textContent = (FU_PCT*100) + '%';
+
+  // ===== LLM COSTS =====
+  const llmItems = [];
+  let totalLLM = 0;
+
+  // 1. Extract-info-agent: classify query
+  const e1_in = 500; // system prompt + user query
+  const e1_out = 15; // just a category label (~10-15 words)
+  const e1_cost = tokenCost(e1_in, e1_out) * Q;
+  llmItems.push(makeRow(
+    'Extract Info Agent — Classify Query',
+    `1 call × ${Q} queries · Output: category label (~15 tokens)`,
+    fmtTokens(e1_in * Q, e1_out * Q),
+    fmt(e1_cost), 'llm-color'
+  ));
+  totalLLM += e1_cost;
+
+  // 2. Extract-info-agent: follow-up check (only for missing market model)
+  const fuQ = Math.round(Q * FU_PCT);
+  const e2_in = 2000; // chat history context
+  const e2_out = 15; // yes/no follow-up decision (~10-15 words)
+  const e2_cost = tokenCost(e2_in, e2_out) * fuQ;
+  llmItems.push(makeRow(
+    'Extract Info Agent — Follow-up Check' + (FU_PCT > 0 ? '' : '<span class="note-tag">SKIPPED</span>'),
+    `1 call × ${fuQ} queries (${(FU_PCT*100)}% missing market model) · Output: yes/no (~15 tokens)`,
+    fmtTokens(e2_in * fuQ, e2_out * fuQ),
+    fmt(e2_cost), 'llm-color'
+  ));
+  totalLLM += e2_cost;
+
+  // 3. Reviewer Agent: 5 LLM calls per query to filter content
+  const r_in = CTX + 500; // retrieved docs + system prompt per call (BIG context)
+  const r_out = 80; // short relevance verdict/filtered snippet (~50-100 tokens)
+  const r_cost = tokenCost(r_in, r_out) * 5 * Q;
+  llmItems.push(makeRow(
+    'Reviewer Agent — Filter Relevant Content',
+    `5 calls × ${Q} queries = ${5*Q} calls · Input: ~${((CTX+500)/1000).toFixed(1)}K each · Output: short verdict (~80 tokens)`,
+    fmtTokens(r_in * 5 * Q, r_out * 5 * Q),
+    fmt(r_cost), 'llm-color'
+  ));
+  totalLLM += r_cost;
+
+  // 4. Generate Response
+  const g_in = Math.round(CTX * 0.6) + 500; // filtered context + query
+  const g_out = 600; // 2-5 paragraphs (~400-800 tokens)
+  const g_cost = tokenCost(g_in, g_out) * Q;
+  llmItems.push(makeRow(
+    'Generate Response Agent',
+    `1 call × ${Q} queries · Output: 2-5 paragraphs (~600 tokens)`,
+    fmtTokens(g_in * Q, g_out * Q),
+    fmt(g_cost), 'llm-color'
+  ));
+  totalLLM += g_cost;
+
+  // 5. Citation Agent
+  const c_in = 600 + 400; // generated response + system prompt
+  const c_out = 800; // enhanced formatted response (2-5 paragraphs with citations)
+  const c_cost = tokenCost(c_in, c_out) * Q;
+  llmItems.push(makeRow(
+    'Citation Agent — Enhance Format',
+    `1 call × ${Q} queries · Output: formatted response (~800 tokens)`,
+    fmtTokens(c_in * Q, c_out * Q),
+    fmt(c_cost), 'llm-color'
+  ));
+  totalLLM += c_cost;
+
+  $('llmGrid').innerHTML = llmItems.join('');
+
+  // ===== COSMOS DB COSTS =====
+  const dbItems = [];
+  let totalDB = 0;
+
+  // SQL queries from extract-info-agent: 3 per query
+  const sql_ru = 10; // ~10 RU per SQL query
+  const sql_total = sql_ru * 3 * Q;
+  const sql_cost = ruCost(sql_total);
+  dbItems.push(makeRow(
+    'Extract Agent — SQL Queries (market model, RMA, serial)',
+    `3 queries × ${Q} = ${3*Q} queries @ ~${sql_ru} RU each`,
+    `${sql_total.toLocaleString()} RUs`,
+    fmt(sql_cost), 'db-color'
+  ));
+  totalDB += sql_cost;
+
+  // Follow-up: chat history fetch
+  const fu_ru = 15;
+  const fu_total = fu_ru * fuQ;
+  const fu_cost = ruCost(fu_total);
+  dbItems.push(makeRow(
+    'Extract Agent — Chat History Fetch (follow-up)',
+    `1 query × ${fuQ} queries @ ~${fu_ru} RU each`,
+    `${fu_total.toLocaleString()} RUs`,
+    fmt(fu_cost), 'db-color'
+  ));
+  totalDB += fu_cost;
+
+  // Vector search
+  const vec_ru = 40; // vector search is heavier
+  const vec_total = vec_ru * Q;
+  const vec_cost = ruCost(vec_total);
+  dbItems.push(makeRow(
+    'Search Query Agent — Vector Search',
+    `1 search × ${Q} queries @ ~${vec_ru} RU each`,
+    `${vec_total.toLocaleString()} RUs`,
+    fmt(vec_cost), 'db-color'
+  ));
+  totalDB += vec_cost;
+
+  // Storage
+  const storageCost = PRICE.cosmosStoragePerGB * PRICE.storageGB;
+  dbItems.push(makeRow(
+    'Cosmos DB Storage',
+    `~${PRICE.storageGB} GB (vectors + chat history + docs)`,
+    `${PRICE.storageGB} GB`,
+    fmt(storageCost), 'db-color'
+  ));
+  totalDB += storageCost;
+
+  $('dbGrid').innerHTML = dbItems.join('');
+
+  // ===== INFRA =====
+  const infraItems = [];
+  let totalInfra = PRICE.langgraphInfra;
+  infraItems.push(makeRow(
+    'LangGraph Hosting (Azure Container Apps / App Service B1)',
+    'Lightweight container for orchestration',
+    '—',
+    fmt(PRICE.langgraphInfra), 'infra-color'
+  ));
+  $('infraGrid').innerHTML = infraItems.join('');
+
+  // ===== TOTALS =====
+  const grand = totalLLM + totalDB + totalInfra;
+  $('totalCost').textContent = fmt(grand);
+  $('totalLLM').textContent = fmt(totalLLM);
+  $('totalDB').textContent = fmt(totalDB);
+  $('totalInfra').textContent = fmt(totalInfra);
+
+  const llmP = grand > 0 ? Math.round(totalLLM / grand * 100) : 0;
+  const dbP = grand > 0 ? Math.round(totalDB / grand * 100) : 0;
+  const infraP = 100 - llmP - dbP;
+  $('llmPct').textContent = llmP + '%';
+  $('dbPct').textContent = dbP + '%';
+  $('infraPct').textContent = infraP + '%';
+}
+
+$('querySlider').addEventListener('input', calculate);
+$('contextSlider').addEventListener('input', calculate);
+$('followupSlider').addEventListener('input', calculate);
+
+calculate();
+</script>
+</body>
+</html>
