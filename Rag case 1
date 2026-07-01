@@ -1,0 +1,36 @@
+2. Root Cause
+All three symptoms share a single root cause: the system makes attach-or-leak decisions by comparing a bi-encoder cosine score to a fixed global threshold. A bi-encoder (e5-large) encodes each text independently into a vector, so two cases describing the same outage in different words can land at only 0.82–0.88 cosine — below the bar — and leak.
+There is no single threshold that works for every topic. Tight topics (a specific error code) have members at 0.93+, while loose topics (“login is slow”) sit near 0.80. Set the bar high and loose topics leak; set it low and unrelated cases merge. Because every leaked fragment can independently grow into its own alert, the same topic spawns several alerts, and near-miss cases are stranded as singletons.
+The fix is not a better threshold. It is a better judge of “same issue or not,” applied through a RAG retrieve-and-rerank pipeline against two indexes.
+3. Proposed Design: Two-Index RAG
+Core idea in one sentence: retrieve candidates cheaply with the fast bi-encoder, then decide accurately with a cross-encoder reranker — against two indexes: a frozen one of known topics (Pass 1) and a self-growing one built from the leaked cases themselves (Pass 2).
+3.1 Two indexes
+• Index A — Known red topics. Frozen, built once from the labelled topics. One representative vector per topic. Pass 1 reads from it.
+• Index B — Emergent clusters. Starts empty and grows from the stream. Each leaked case joins a cluster here or plants a new one. Pass 2 reads and writes this index. This write-back is what groups previously unseen families of cases — the piece the current system lacks.
+3.2 Two scoring stages
+• Bi-encoder ANN (fast, blunt). The existing e5-large embedding plus Approximate Nearest Neighbor search narrows thousands of candidates to the top ~10. It only needs to avoid missing the right candidate, not make the final call.
+• Cross-encoder reranker (slow, sharp). Takes the case and a candidate together as one input and scores how truly same-issue they are. It reads both texts jointly, so it catches paraphrases the cosine score misses.
+3.3 Two operating points
+The same reranker is used with two different bars, because Pass 1 and Pass 2 have different risk profiles:
+• Pass 1 — strict bar (high precision). Only attach to a known topic when confident; a false attach to a known topic is costly.
+• Pass 2 — generous bar (high recall). Group leaked cases aggressively; a wrong merge is later corrected by the async merge sweep.
+Using one threshold for both decisions is why the current system cannot win precision and recall at the same time.
+3.4 Async reconciliation (off the hot path)
+RAG retrieves one case at a time and has no notion that two clusters are the same family. Three background jobs, all running off the latency path, close that gap:
+• Centroid / exemplar refresh. When a cluster grows, recompute its representative vector and upsert it so retrieval stays accurate.
+• Merge sweep. Periodically compare active cluster exemplars; if two are close enough and share high-signal tokens (error codes, endpoints), merge them. This removes duplicate alerts.
+• Expiry with resurrection. Move expired clusters to a cold pool instead of deleting them. A recurrence retrieves the cold exemplar and resurrects the cluster rather than spawning a new alert.
+3.5 The hot path, end to end
+1. Embed case (e5-large)                         ~30 ms
+2. Pass 1: ANN over Index A  -> top ~10           ~10 ms
+3. Cross-encoder rerank (strict bar)              ~80 ms
+    match  -> attach to known topic (done)
+    no match -> leaks to Pass 2
+
+4. Pass 2: ANN over Index B  -> top ~10           ~10 ms
+5. Cross-encoder rerank (generous bar)            ~80 ms
+    match existing cluster -> attach + write back
+    match singleton        -> form watchlist (2)
+    match nothing          -> plant new singleton
+6. Promote watchlist -> alert at size >= 3
+  Async (off path): refresh, merge sweep, expiry/resurrect
