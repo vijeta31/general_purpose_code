@@ -1,0 +1,108 @@
+Here's the updated slide content with search methodology and indexing details added to each service slide.
+
+---
+
+**Slide 2: What is a Vector Database & Why It Matters** *(add this line)*
+- Core mechanism: convert data → embedding vector → store in an index structure that allows fast "nearest neighbor" lookup instead of scanning every vector (which doesn't scale past a few thousand items)
+
+---
+
+**Slide 3: Overview table** *(add a column)*
+
+| Service | Type | Search Method | Best for |
+|---|---|---|---|
+| OpenSearch Service | Search engine + k-NN | HNSW / IVF (via Lucene, Faiss, or NMSLIB engines) | High-throughput, hybrid search |
+| OpenSearch Serverless | On-demand OpenSearch | Same as above (HNSW default) | Zero-ops, variable traffic |
+| Aurora + pgvector | Relational + vector | HNSW / IVFFlat | SQL joins with structured data |
+| MemoryDB | In-memory Redis-compatible | HNSW | Ultra-low latency |
+| S3 Vectors | Object storage + vectors | Proprietary ANN, optimized for cost | Billions of vectors, cold storage |
+| Kendra | Managed NLP search | Managed/abstracted (no user-tunable index) | Document/knowledge-base search |
+| Neptune Analytics | Graph + vector | HNSW combined with graph traversal | Relationship-aware similarity |
+
+---
+
+**Slide 4: Amazon OpenSearch Service — add methodology block**
+
+**Underlying search technique:**
+- Uses **Approximate Nearest Neighbor (ANN)** search rather than brute-force exact k-NN — trades a small amount of accuracy for massive speed gains at scale
+- Supports three interchangeable **engines**: Lucene, Faiss, and NMSLIB, each implementing algorithms like HNSW and IVF
+- **HNSW (Hierarchical Navigable Small World):** creates a hierarchical graph structure of connections between vectors, letting search "hop" through the graph toward the nearest match instead of comparing against every vector — this is the primary algorithm across all three engines
+- **IVF (Inverted File Index):** organizes vectors into buckets based on clustering and, during search, searches only a subset of the buckets — faster on very large datasets at the cost of some recall
+- Faiss also supports **PQ (Product Quantization)** encoding to compress vectors and cut memory footprint, useful at billion-vector scale
+
+**How indexing helps retrieval:**
+- Without an index, a similarity query means comparing the input vector against *every* stored vector — O(n), which doesn't scale
+- HNSW's graph structure lets a query jump through a small number of "hops" to reach the neighborhood of the closest matches — typically O(log n)
+- Indexing is built once (or incrementally) and reused across all future queries, so the cost is paid at write-time, not read-time — exactly what you want for real-time incident matching
+
+---
+
+**Slide 6: Aurora PostgreSQL + pgvector — add methodology block**
+
+**Underlying search technique:**
+- Default is exact k-NN (100% recall, brute-force) — fine for small datasets
+- For larger datasets, pgvector supports **HNSW** and **IVFFlat** indexes to switch to approximate search
+- Distance functions: L2 (Euclidean), cosine, and inner product — chosen based on how your embedding model was trained
+
+**How indexing helps retrieval:**
+- Without an index, pgvector does a full table scan comparing every row's vector — fine for a few thousand rows, painfully slow past that
+- HNSW index trades a small index-build cost for dramatically faster queries, and importantly, plugs into PostgreSQL's native query planner — so it can combine with `WHERE` filters efficiently (pre-filter on severity/team, then vector search only the remaining rows)
+- IVFFlat clusters vectors into buckets first, so at query time only a handful of buckets are searched instead of the whole table
+
+---
+
+**Slide 7: Amazon MemoryDB — add methodology block**
+
+**Underlying search technique:**
+- Uses HNSW graph-based ANN search, held entirely in memory rather than on disk
+- Because there's no disk I/O in the query path, graph traversal happens at RAM speed — this is the main reason it claims fastest search among AWS's vector options
+
+**How indexing helps retrieval:**
+- The HNSW graph is built and kept resident in memory, so every query benefits from the pre-built graph structure with zero disk-read latency
+- Trade-off: the index (and full dataset) must fit in memory, so cost scales with data size
+
+---
+
+**Slide 8: Amazon S3 Vectors — add methodology block**
+
+**Underlying search technique:**
+- Uses a proprietary approximate search method (not a user-configurable HNSW/IVF) optimized specifically for cost efficiency over raw latency
+- Designed around infrequent-access patterns (minutes-to-hours between queries) rather than the always-warm index a millisecond-latency service needs
+
+**How indexing helps retrieval:**
+- Rather than keeping an always-hot in-memory index (expensive), S3 Vectors builds and stores a lightweight index structure at rest in object storage
+- Retrieval accepts slightly higher latency (sub-100ms) in exchange for not paying for a constantly-running compute layer — ideal when you're indexing millions of resolved-but-rarely-queried incidents
+
+---
+
+**Slide 10: Amazon Neptune Analytics — add methodology block**
+
+**Underlying search technique:**
+- Combines HNSW-based vector similarity with native graph traversal algorithms
+- A query can do "find nodes similar to X" and then walk relationship edges from those nodes in the same operation
+
+**How indexing helps retrieval:**
+- The vector index narrows candidates by similarity first; the graph index then allows traversal without a second, separate lookup step
+- Useful when the answer isn't just "closest match" but "closest match, and what's connected to it"
+
+---
+
+**Slide 12: Decision Framework — add a row**
+
+| If you need... | Choose | Indexing behavior |
+|---|---|---|
+| Fastest time to production | OpenSearch Serverless / Bedrock KB | HNSW pre-configured, no tuning required |
+| SQL joins with structured data | Aurora + pgvector | HNSW/IVFFlat, plugs into query planner for combined filter+vector queries |
+| Lowest possible latency | MemoryDB | In-memory HNSW, zero disk I/O |
+| Massive scale, low cost | S3 Vectors | Lightweight at-rest index, cost over speed |
+| Relationship-aware matching | Neptune Analytics | HNSW + graph index combined |
+
+---
+
+**Slide 13 (Incident matching architecture) — add a technical note box**
+- Recommend HNSW for the incident-matching index — it gives strong recall at real-time latency, which matters when a missed match means a duplicate incident isn't flagged
+- Pre-filter by category/service *before* the vector search when possible (Aurora does this natively via SQL `WHERE`; OpenSearch does this via Faiss efficient filtering) — narrows the candidate pool and speeds up the ANN search
+
+---
+
+Want me to also add a slide specifically comparing HNSW vs IVF vs exact k-NN (a good "compare the algorithms" slide often expected in these decks)?
